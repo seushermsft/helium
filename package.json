@@ -23,23 +23,29 @@
     "url": "https://github.com/Microsoft/helium/issues"
   },
   "homepage": "https://github.com/Microsoft/helium#readme",
+  "dependencies": {
+    "@types/body-parser": "^1.17.0",
+    "@types/restify": "^7.2.9",
+    "body-parser": "^1.18.3",
+    "restify": "^8.3.0",
+    "restify-errors": "^7.0.0",
+    "restify-plugins": "^1.6.0",
+    "ts-node": "^3.3.0",
+    "typescript": "^3.4.3",
+    "documentdb": "^1.15.3",
+    "@types/documentdb": "^1.10.5",
+    "ms-rest-azure": "^2.6.0",
+    "azure-keyvault": "^3.0.4"
+  },
   "devDependencies": {
     "@types/chai": "^3.4.34",
     "@types/chai-http": "0.0.29",
     "@types/documentdb": "^1.10.5",
     "@types/mocha": "^2.2.32",
-    "azure-keyvault": "^3.0.4",
     "chai": "^3.5.0",
     "chai-http": "^3.0.0",
-    "documentdb": "^1.15.3",
     "gulp": "^3.9.1",
     "gulp-typescript": "^3.1.1",
-    "mocha": "^3.1.2",
-    "ms-rest-azure": "^2.6.0",
-    "restify": "^8.3.0",
-    "restify-errors": "^7.0.0",
-    "restify-plugins": "^1.6.0",
-    "ts-node": "^3.3.0",
-    "typescript": "^3.3.3"
+    "mocha": "^3.1.2"
   }
 }
