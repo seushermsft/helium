@@ -31,5 +31,5 @@ export CLIENT_ID=<app id>
 export CLIENT_SECRET=<app key>
 export TENANT_ID=<Azure tenant id>
 export KEY_VAULT_URL=`az keyvault show --name heliumkeyvault | jq '.properties.vaultUri' | tr -d '"'`
-export COSMOSDB_URL=az cosmosdb show --name heliumcosmosdb --resource-group helium | jq '.documentEndpoint' | tr -d '"'
+export COSMOSDB_URL=`az cosmosdb show --name heliumcosmosdb --resource-group helium | jq '.documentEndpoint' | tr -d '"'`
 ```
