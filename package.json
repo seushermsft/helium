@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node dist/server.js",
-    "test": "mocha --reporter spec --compilers ts:ts-node/register 'tests/**/*test*.ts",
+    "test": "mocha --reporter spec --compilers ts:ts-node/register 'tests/**/*test*.ts'",
     "build": "gulp scripts",
     "docker-build": "docker build -t helium:canary .",
     "docker-run": "docker run -it -p 8080:8080 helium:canary"
