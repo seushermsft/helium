@@ -1,4 +1,4 @@
-import { CosmosDB } from './cosmosdb';
+import { CosmosDBProvider } from './cosmosdbprovider';
 import {DocumentQuery} from "documentdb";
 import { expect } from 'chai';
 import 'mocha';
@@ -6,7 +6,7 @@ import 'mocha';
 describe('Validate CosmosDB', () => {
 
   it('should query a document', async () => {
-    const result = new CosmosDB("https://seushercosmos.documents.azure.com:443/", "<secret>");
+    const result = new CosmosDBProvider("https://seushercosmos.documents.azure.com:443/", "bmldK0XWrNQECYehItzrsnzxx0uU4zT3LFZD18jFOKaaPy052buxpmSFetzvJcEJo1LtDm69UJGcnTJMKw8DqA==");
     let querySpec: DocumentQuery  = {
         query: 'SELECT * FROM root r WHERE r.id = @id',
         parameters: [
@@ -25,7 +25,7 @@ describe('Validate CosmosDB', () => {
   });
 
   it('should query multiple documents', async () => {
-    const result = new CosmosDB("https://seushercosmos.documents.azure.com:443/", "<secret>");
+    const result = new CosmosDBProvider("https://seushercosmos.documents.azure.com:443/", "bmldK0XWrNQECYehItzrsnzxx0uU4zT3LFZD18jFOKaaPy052buxpmSFetzvJcEJo1LtDm69UJGcnTJMKw8DqA==");
     let querySpec: DocumentQuery  = {
         query: 'SELECT * FROM root',
         parameters: []
@@ -38,7 +38,7 @@ describe('Validate CosmosDB', () => {
   });
 
   it('should write/update a document', async () => {
-    const result = new CosmosDB("https://seushercosmos.documents.azure.com:443/", "<secret>");
+    const result = new CosmosDBProvider("https://seushercosmos.documents.azure.com:443/", "bmldK0XWrNQECYehItzrsnzxx0uU4zT3LFZD18jFOKaaPy052buxpmSFetzvJcEJo1LtDm69UJGcnTJMKw8DqA==");
     
     let content:any = { "id": "3", "content": "updated" };
     let results = await result.upsertDocument("ToDoList", "Items", content);

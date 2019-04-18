@@ -1,11 +1,11 @@
-import {DocumentClient, DocumentQuery, RetrievedDocument} from "documentdb";
+import {DocumentClient, DocumentQuery, FeedOptions, RetrievedDocument} from "documentdb";
 
 /**
  * Handles executing queries against CosmosDB
  */
-export class CosmosDB {
+export class CosmosDBProvider {
 
-    docDbClient: DocumentClient;
+    private _docDbClient: DocumentClient;
 
     /**
      * Creates a new instance of the CosmosDB class.
@@ -13,8 +13,7 @@ export class CosmosDB {
      * @param accessKey The CosmosDB access key (primary of secondary).
      */
     constructor(url: string, accessKey: string) {
-        
-        this.docDbClient = new DocumentClient(url, {
+        this._docDbClient = new DocumentClient(url, {
             masterKey: accessKey
         });
     }
@@ -25,13 +24,13 @@ export class CosmosDB {
      * @param collection The collection the document is in.
      * @param query The query to select the documents.
      */
-    async queryDocuments(database: string, collection: string, query: DocumentQuery): Promise<RetrievedDocument[]> {
+    async queryDocuments(database: string, collection: string, query: DocumentQuery, options?: FeedOptions): Promise<RetrievedDocument[]> {
 
         // Wrap all functionality in a promise to avoid forcing the caller to use callbacks
         return new Promise((resolve, reject) => {
-            let collectionLink = CosmosDB.buildCollectionLink(database, collection);
+            let collectionLink = CosmosDBProvider._buildCollectionLink(database, collection);
     
-            this.docDbClient.queryDocuments(collectionLink, query).toArray((err, results) => {
+            this._docDbClient.queryDocuments(collectionLink, query, options).toArray((err, results) => {
                     if(err == null) {
                         resolve(results);
                     } else {
@@ -51,8 +50,8 @@ export class CosmosDB {
 
         // Wrap all functionality in a promise to avoid forcing the caller to use callbacks
         return new Promise((resolve, reject) => {
-            let collectionLink = CosmosDB.buildCollectionLink(database, collection);
-            this.docDbClient.upsertDocument(collectionLink, content, (err, result) => {
+            let collectionLink = CosmosDBProvider._buildCollectionLink(database, collection);
+            this._docDbClient.upsertDocument(collectionLink, content, (err, result) => {
                 if (err == null) {
                     resolve(result);
                 } else {
@@ -67,7 +66,7 @@ export class CosmosDB {
      * @param database The name of the database the collection is in.
      * @param collection The name of the collection.
      */
-    private static buildCollectionLink(database: string, collection: string): string {
+    private static _buildCollectionLink(database: string, collection: string): string {
         return `/dbs/${database}/colls/${collection}`;
     }
 }
