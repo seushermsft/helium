@@ -65,8 +65,6 @@ export async function getMovieById (req, res) {
     let locator = await ServiceLocator.getInstance();
     let cosmosDb = locator.getCosmosDB();
 
-    // TODO (seusher): Understand why Bart isn't using movieId as the partition key.
-    // movieId and key are the same value, and using key will force cross-partition scan.
     let querySpec: DocumentQuery  = {
         query: 'SELECT * FROM root where root.movieId = @id',
         parameters: [
@@ -77,6 +75,7 @@ export async function getMovieById (req, res) {
         ]
     };
     
+    // movieId isn't the partition key, so any search on it will require a cross-partition query.
     let results = await cosmosDb.queryDocuments(database, collection, querySpec, { enableCrossPartitionQuery: true });
 
     return res.send(200, results);
