@@ -25,7 +25,7 @@ export async function getAll(req, res) {
         };
     } else {
         querySpec = {
-            query: 'SELECT * FROM root where root.title = @title',
+            query: 'SELECT * FROM root where CONTAINS(root.title, @title)',
             parameters: [
                 {
                     name: '@title',
