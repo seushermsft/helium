@@ -68,7 +68,7 @@ export async function getMovieById (req, res) {
     // TODO (seusher): Understand why Bart isn't using movieId as the partition key.
     // movieId and key are the same value, and using key will force cross-partition scan.
     let querySpec: DocumentQuery  = {
-        query: 'SELECT * FROM root where root.key = @id',
+        query: 'SELECT * FROM root where root.movieId = @id',
         parameters: [
             {
                 name: '@id',
@@ -77,7 +77,7 @@ export async function getMovieById (req, res) {
         ]
     };
     
-    let results = await cosmosDb.queryDocuments(database, collection, querySpec);
+    let results = await cosmosDb.queryDocuments(database, collection, querySpec, { enableCrossPartitionQuery: true });
 
     return res.send(200, results);
 };
