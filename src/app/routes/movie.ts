@@ -8,7 +8,7 @@ export async function registerRoutes(app) {
 
     const locator = await ServiceLocator.getInstance();
     const telem = locator.getTelemClient();
-    telem.trackEvent("register movie routes");
+    telem.trackEvent("register movie routes123");
 
     // @todo move up a level so other entities can inherit
     const apiPrefix = "/api";
