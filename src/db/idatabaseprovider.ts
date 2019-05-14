@@ -29,4 +29,14 @@ export interface IDatabaseProvider {
     queryCollections(database: string,
                      query: DocumentQuery): Promise<RetrievedDocument[]>;
 
+    /**
+     * Retrieves a specific document by Id.
+     * @param database The database the document is in.
+     * @param collection The collection the document is in.
+     * @param documentId The id of the document to query.
+     */
+    getDocument(database: string,
+                collection: string,
+                documentId: string): Promise<RetrievedDocument>;
+
 }

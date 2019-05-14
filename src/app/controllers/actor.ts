@@ -53,23 +53,10 @@ export class ActorController implements interfaces.Controller {
 
         this.telem.trackEvent("get actor by id");
 
-        const querySpec: DocumentQuery = {
-            parameters: [
-                {
-                    name: "@id",
-                    value: actorId,
-                },
-            ],
-            query: `SELECT root.actorId,
-                    root.type, root.name, root.birthYear, root.deathYear, root.profession, root.movies
-                    FROM root where root.actorId = @id`,
-        };
-
         // actorID isn't the partition key, so any search on it will require a cross-partition query.
-        const results = await this.cosmosDb.queryDocuments(database,
+        const results = await this.cosmosDb.getDocument(database,
             collection,
-            querySpec,
-            { enableCrossPartitionQuery: true });
+            actorId);
 
         return res.send(200, results);
     }

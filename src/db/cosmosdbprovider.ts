@@ -1,6 +1,7 @@
 import { DocumentClient, DocumentQuery, FeedOptions, RetrievedDocument } from "documentdb";
 import { inject, injectable, named } from "inversify";
 import { ITelemProvider } from "../telem/itelemprovider";
+import { stringify } from "querystring";
 
 /**
  * Handles executing queries against CosmosDB
@@ -22,7 +23,19 @@ export class CosmosDBProvider {
      * @param collection The name of the collection.
      */
     private static _buildCollectionLink(database: string, collection: string): string {
-        return `/dbs/${database}/colls/${collection}`;
+        const dbLink = CosmosDBProvider._buildDBLink(database);
+        return `${dbLink}/colls/${collection}`;
+    }
+
+    /**
+     * Builds a document link. Generates this over querying CosmosDB for performance reasons.
+     * @param database The name of the database the collection is in.
+     * @param collection The name of the collection.
+     * @param documentId The id of the document to retrieve.
+     */
+    private static _buildDocumentLink(database: string, collection: string, documentId: string): string {
+        const collectionLink = CosmosDBProvider._buildCollectionLink(database, collection);
+        return `${collectionLink}/docs/${documentId}/`;
     }
 
     private docDbClient: DocumentClient;
@@ -144,6 +157,27 @@ export class CosmosDBProvider {
                     resolve(result);
                 } else {
                     reject(err);
+                }
+            });
+        });
+    }
+
+    /**
+     * Retrieves a specific document by Id.
+     * @param database The database the document is in.
+     * @param collection The collection the document is in.
+     * @param documentId The id of the document to query.
+     */
+    public async getDocument(database: string, collection: string, documentId: string): Promise<RetrievedDocument> {
+        return new Promise((resolve, reject) => {
+            const documentLink = CosmosDBProvider._buildDocumentLink(database, collection, documentId);
+            console.log(documentLink);
+
+            this.docDbClient.readDocument(documentLink, { partitionKey: "0" }, (err, result) => {
+                if (err == null) {
+                    resolve(result);
+                } else {
+                    reject(`${err.code} - ${err.body}`);
                 }
             });
         });
