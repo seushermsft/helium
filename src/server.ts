@@ -91,8 +91,12 @@ export async function getConfigValues(): Promise<{cosmosDbKey: string, cosmosDbU
         const keyVaultUrl = process.env.KEY_VAULT_URL;
         const keyvault = new KeyVaultProvider(keyVaultUrl, clientId, clientSecret, tenantId);
 
-        cosmosDbKey = await keyvault.getSecret("cosmosDBkey");
-        insightsKey = await keyvault.getSecret("AppInsightsInstrumentationKey");
+        try {
+            cosmosDbKey = await keyvault.getSecret("cosmosDBkey");
+            insightsKey = await keyvault.getSecret("AppInsightsInstrumentationKey");
+        } catch {
+            console.log("Failed to get secrets from KeyVault. Falling back to env vars for secrets");
+        }
 
     } else {
         console.log("Unable to use KeyVault, falling back to env vars for secrets");
