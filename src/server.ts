@@ -65,16 +65,13 @@ export async function getConfigValues(): Promise<{cosmosDbKey: string, cosmosDbU
     let configFallback: boolean;
 
     // try to get KeyVault connection details from env
+    // Whether or not we have clientId and clientSecret, we want to use KeyVault
     const clientId = process.env.CLIENT_ID;
-    if (!clientId) {
-        console.log("No CLIENT_ID env var set");
-        configFallback = true;
-    }
-
     const clientSecret = process.env.CLIENT_SECRET;
-    if (!clientSecret) {
-        console.log("No CLIENT_SECRET env var set");
-        configFallback = true;
+
+    if (clientId && !clientSecret) {
+        console.log("CLIENT_ID env var set, but not CLIENT_SECRET");
+        process.exit(1);
     }
 
     const tenantId = process.env.TENANT_ID;
