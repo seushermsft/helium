@@ -1,7 +1,7 @@
 import { DocumentClient, DocumentQuery, FeedOptions, RetrievedDocument } from "documentdb";
 import { inject, injectable, named } from "inversify";
 import { ITelemProvider } from "../telem/itelemprovider";
-import { stringify } from "querystring";
+import { DateUtilities } from "../utilities/dateUtilities";
 
 /**
  * Handles executing queries against CosmosDB
@@ -54,6 +54,7 @@ export class CosmosDBProvider {
         });
         this.url = url;
         this.telem = telem;
+
     }
 
     /**
@@ -73,14 +74,12 @@ export class CosmosDBProvider {
             const collectionLink = CosmosDBProvider._buildCollectionLink(database, collection);
 
             // Get the timestamp immediately before the call to queryDocuments
-            const queryStartDateTime = new Date();
-            const queryStartTimeMs = queryStartDateTime.getTime();
+            const queryStartTimeMs = DateUtilities.getTimestamp();
 
             this.docDbClient.queryDocuments(collectionLink, query, options).toArray((err, results) => {
 
                 // Get the timestamp for when the query completes
-                const queryEndDateTime = new Date();
-                const queryEndTimeMs = queryEndDateTime.getTime();
+                const queryEndTimeMs = DateUtilities.getTimestamp();
 
                 // Calculate query duration = difference between end and start timestamps
                 const queryDurationMs = queryEndTimeMs - queryStartTimeMs;
@@ -166,14 +165,18 @@ export class CosmosDBProvider {
      * Retrieves a specific document by Id.
      * @param database The database the document is in.
      * @param collection The collection the document is in.
+     * @param partitionKey The partition key for the document.
      * @param documentId The id of the document to query.
      */
-    public async getDocument(database: string, collection: string, documentId: string): Promise<RetrievedDocument> {
+    public async getDocument(database: string,
+                             collection: string,
+                             partitionKey: string,
+                             documentId: string): Promise<RetrievedDocument> {
         return new Promise((resolve, reject) => {
             const documentLink = CosmosDBProvider._buildDocumentLink(database, collection, documentId);
             console.log(documentLink);
 
-            this.docDbClient.readDocument(documentLink, { partitionKey: "0" }, (err, result) => {
+            this.docDbClient.readDocument(documentLink, { partitionKey }, (err, result) => {
                 if (err == null) {
                     resolve(result);
                 } else {

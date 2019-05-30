@@ -33,10 +33,12 @@ export interface IDatabaseProvider {
      * Retrieves a specific document by Id.
      * @param database The database the document is in.
      * @param collection The collection the document is in.
+     * @param partitionKey The partition key for the document.
      * @param documentId The id of the document to query.
      */
     getDocument(database: string,
                 collection: string,
+                partitionKey: string,
                 documentId: string): Promise<RetrievedDocument>;
 
 }

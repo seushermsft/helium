@@ -1,9 +1,12 @@
-import { DocumentQuery } from "documentdb";
+import { DocumentQuery, RetrievedDocument } from "documentdb";
 import { inject, injectable } from "inversify";
 import { Controller, Get, interfaces, Post } from "inversify-restify-utils";
 import { collection, database } from "../../db/dbconstants";
 import { IDatabaseProvider } from "../../db/idatabaseprovider";
+import { ILoggingProvider } from "../../logging/iLoggingProvider";
 import { ITelemProvider } from "../../telem/itelemprovider";
+import { Movie } from "../models/movie";
+import { statusBadRequest, statusCreated, statusInternalServerError, statusOK } from "./constants";
 
 /**
  * controller implementation for our movies endpoint
@@ -14,9 +17,11 @@ export class MovieController implements interfaces.Controller {
 
     constructor(
         @inject("IDatabaseProvider") private cosmosDb: IDatabaseProvider,
-        @inject("ITelemProvider") private telem: ITelemProvider) {
+        @inject("ITelemProvider") private telem: ITelemProvider,
+        @inject("ILoggingProvider") private logger: ILoggingProvider) {
         this.cosmosDb = cosmosDb;
         this.telem = telem;
+        this.logger = logger;
     }
 
     /**
@@ -27,7 +32,6 @@ export class MovieController implements interfaces.Controller {
     public async getAll(req, res) {
 
         this.telem.trackEvent("get all movies");
-
         let querySpec: DocumentQuery;
 
         // Movie name is an optional query param.
@@ -57,12 +61,19 @@ export class MovieController implements interfaces.Controller {
             };
         }
 
-        const results = await this.cosmosDb.queryDocuments(database,
+        let resCode = statusOK;
+        let results: RetrievedDocument[];
+        try {
+          results = await this.cosmosDb.queryDocuments(
+            database,
             collection,
             querySpec,
-            { enableCrossPartitionQuery: true });
-
-        return res.send(200, results);
+            { enableCrossPartitionQuery: true },
+          );
+        } catch (err) {
+          resCode = statusInternalServerError;
+        }
+        return res.send(resCode, results);
     }
 
     /**
@@ -73,10 +84,33 @@ export class MovieController implements interfaces.Controller {
 
         this.telem.trackEvent("create movie");
 
-        // TODO (seusher): Add validation based on the model
-        const result = await this.cosmosDb.upsertDocument(database, collection, req.body);
+        const movie: Movie = Object.assign(Object.create(Movie.prototype),
+            JSON.parse(JSON.stringify(req.body)));
 
-        return res.send(200, result);
+        movie.validate().then(async (errors) => {
+            if (errors.length > 0) {
+                return res.send(statusBadRequest,
+                    {
+                        message: [].concat.apply([], errors.map((x) =>
+                            Object.values(x.constraints))),
+                        status: statusBadRequest,
+                    });
+            }
+        });
+
+        // upsert document, catch errors
+        let resCode: number = statusCreated;
+        let result: RetrievedDocument;
+        try {
+          result = await this.cosmosDb.upsertDocument(
+            database,
+            collection,
+            req.body,
+          );
+        } catch (err) {
+          resCode = statusInternalServerError;
+        }
+        return res.send(resCode, result);
     }
 
     /**
@@ -89,24 +123,16 @@ export class MovieController implements interfaces.Controller {
 
         this.telem.trackEvent("get movie by id");
 
-        const querySpec: DocumentQuery = {
-            parameters: [
-                {
-                    name: "@id",
-                    value: movieId,
-                },
-            ],
-            query: `SELECT root.movieId, root.type, root.title, root.year,
-            root.runtime, root.genres, root.roles
-            FROM root where root.id = @id and root.type = 'Movie'`,
-        };
-
-        // movieId isn't the partition key, so any search on it will require a cross-partition query.
-        const results = await this.cosmosDb.queryDocuments(database,
-            collection,
-            querySpec,
-            { enableCrossPartitionQuery: true });
-
-        return res.send(200, results);
+        let resCode = statusOK;
+        let result: RetrievedDocument;
+        try {
+            result = await this.cosmosDb.getDocument(database,
+                collection,
+                "0",
+                movieId);
+        } catch (err) {
+          resCode = statusInternalServerError;
+        }
+        return res.send(resCode, result);
     }
 }

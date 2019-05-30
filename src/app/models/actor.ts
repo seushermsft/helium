@@ -10,10 +10,10 @@ import {
     ValidationError,
 } from "class-validator";
 import { IsEqualToProperty } from "../../utilities/validationUtilities";
-import { Actor } from "./actor";
 import { IValidatable } from "./ivalidatable";
+import { Movie } from "./movie";
 
-export class Movie implements IValidatable {
+export class Actor implements IValidatable {
 
     @IsNotEmpty()
     @IsAlphanumeric()
@@ -21,14 +21,14 @@ export class Movie implements IValidatable {
 
     @IsNotEmpty()
     @IsAlphanumeric()
-    public movieId: string;
+    public actorId: string;
 
-    @ValidateIf((x) => x.title !== undefined)
-    @IsEqualToProperty("title", (x) => (x as string).toLowerCase(),
+    @ValidateIf((x) => x.name !== undefined)
+    @IsEqualToProperty("name", (x) => (x as string).toLowerCase(),
         {
             message: (args: ValidationArguments) => {
-                if ((args.object as Movie).title !== undefined) {
-                    return `textSearch must be equal to ${(args.object as Movie).title.toLowerCase()}`;
+                if ((args.object as Actor).name !== undefined) {
+                    return `textSearch must be equal to ${(args.object as Actor).name.toLowerCase()}`;
                 } else {
                     return `textSearch must equal the lowercased version of the object's ${args.targetName} property`;
                 }
@@ -39,33 +39,29 @@ export class Movie implements IValidatable {
 
     @IsNotEmpty()
     @NotEquals((x) => x.trim.length() > 0)
-    public title: string;
+    public name: string;
 
-    @Equals("Movie")
+    @Equals("Actor")
     public type: string;
 
     constructor(
         id: string,
-        movieId: string,
-        title: string,
+        actorId: string,
+        name: string,
         textSearch: string,
         public key?: number,
-        public year?: number,
-        public rating?: number,
-        public votes?: number,
-        public genres?: string[],
-        public roles?: Actor[]) {
+        public birthYear?: number,
+        public profession?: string[],
+        public movies?: Movie[]) {
         this.id = id;
-        this.movieId = movieId;
-        this.title = title;
+        this.actorId = actorId;
+        this.name = name;
         this.textSearch = textSearch;
-        this.type = "Movie";
+        this.type = "Actor";
         this.key = key;
-        this.year = year;
-        this.rating = rating;
-        this.votes = votes;
-        this.genres = genres;
-        this.roles = roles;
+        this.birthYear = birthYear;
+        this.profession = profession;
+        this.movies = movies;
     }
 
     public validate(): Promise<ValidationError[]> {
