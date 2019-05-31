@@ -38,6 +38,7 @@ import { AppInsightsProvider } from "./telem/telemProvider";
     const server = new InversifyRestifyServer(iocContainer);
     const telem = iocContainer.get<ITelemProvider>("ITelemProvider");
     const log = iocContainer.get<ILoggingProvider>("ILoggingProvider");
+
     telem.trackEvent("server start");
     // listen for requests
     telem.trackEvent("Listening for requests");
@@ -46,16 +47,27 @@ import { AppInsightsProvider } from "./telem/telemProvider";
         app.use(bodyParser.urlencoded({ extended: true }));
         app.use(restify.plugins.queryParser({ mapParams: false }));
         app.use(bodyParser.json());
-        // define a simple route
-        app.get("/", (req, res) => {
-            res.json({ message: "Welcome to the MovieInfo reference application." });
-        });
+
+        app.get("/", restify.plugins.serveStatic({
+            default: "index.html",
+            directory: __dirname + "/static",
+        }));
+
+        app.get("/swagger.json", restify.plugins.serveStatic({
+            directory: __dirname,
+            file: "swagger.json",
+        }));
+
+        app.get("/node_modules/*", restify.plugins.serveStatic({
+            directory: __dirname + "/..",
+        }));
+
     }).build().listen(port, () => {
         console.log("Server is listening on port " + port);
     });
 })();
 
-export async function getConfigValues(): Promise<{cosmosDbKey: string, cosmosDbUrl: string, insightsKey: string}> {
+export async function getConfigValues(): Promise<{ cosmosDbKey: string, cosmosDbUrl: string, insightsKey: string }> {
 
     // cosmosDbKey comes from KeyVault or env var
     let cosmosDbKey: string;
@@ -65,16 +77,13 @@ export async function getConfigValues(): Promise<{cosmosDbKey: string, cosmosDbU
     let configFallback: boolean;
 
     // try to get KeyVault connection details from env
+    // Whether or not we have clientId and clientSecret, we want to use KeyVault
     const clientId = process.env.CLIENT_ID;
-    if (!clientId) {
-        console.log("No CLIENT_ID env var set");
-        configFallback = true;
-    }
-
     const clientSecret = process.env.CLIENT_SECRET;
-    if (!clientSecret) {
-        console.log("No CLIENT_SECRET env var set");
-        configFallback = true;
+
+    if (clientId && !clientSecret) {
+        console.log("CLIENT_ID env var set, but not CLIENT_SECRET");
+        process.exit(1);
     }
 
     const tenantId = process.env.TENANT_ID;
@@ -94,8 +103,12 @@ export async function getConfigValues(): Promise<{cosmosDbKey: string, cosmosDbU
         const keyVaultUrl = process.env.KEY_VAULT_URL;
         const keyvault = new KeyVaultProvider(keyVaultUrl, clientId, clientSecret, tenantId);
 
-        cosmosDbKey = await keyvault.getSecret("cosmosDBkey");
-        insightsKey = await keyvault.getSecret("AppInsightsInstrumentationKey");
+        try {
+            cosmosDbKey = await keyvault.getSecret("cosmosDBkey");
+            insightsKey = await keyvault.getSecret("AppInsightsInstrumentationKey");
+        } catch {
+            console.log("Failed to get secrets from KeyVault. Falling back to env vars for secrets");
+        }
 
     } else {
         console.log("Unable to use KeyVault, falling back to env vars for secrets");

@@ -118,6 +118,38 @@ export class CosmosDBProvider {
     }
 
     /**
+     * Delete the given document.
+     * @param database The database the document is in.
+     * @param collection The collection the document is in.
+     * @param partitionKey The partition key for the document.
+     * @param documentId ID of document to be deleted.
+     * @param options Optional options, not currently implemented.
+     */
+    public async deleteDocument(
+        database: string,
+        collection: string,
+        partitionKey: string,
+        documentId: string,
+        options?: FeedOptions): Promise<string> {
+
+        // Wrap all functionality in a promise to avoid forcing the caller to use callbacks
+        return new Promise((resolve, reject) => {
+            const documentLink = CosmosDBProvider._buildDocumentLink(database, collection, documentId);
+
+            this.docDbClient.deleteDocument(
+                documentLink,
+                { partitionKey },
+                (err) => {
+                    if (err) {
+                        reject(`${err.code}: ${err.body}`);
+                    } else {
+                        resolve("done");
+                    }
+                });
+        });
+    }
+
+    /**
      * Runs the given query against CosmosDB.
      * @param database The database the document is in.
      * @param query The query to select the documents.

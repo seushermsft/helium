@@ -24,6 +24,21 @@ export interface IDatabaseProvider {
     /**
      * Runs the given query against CosmosDB.
      * @param database The database the document is in.
+     * @param collection The collection the document is in.
+     * @param partitionKey The partition key for the document.
+     * @param documentId The document to be deleted's id.
+     * @param options Optional options object.
+     */
+    deleteDocument(
+        database: string,
+        collection: string,
+        partitionKey: string,
+        documentId: string,
+        options?: FeedOptions): Promise<string>;
+
+    /**
+     * Runs the given query against CosmosDB.
+     * @param database The database the document is in.
      * @param query The query to select the documents.
      */
     queryCollections(database: string,

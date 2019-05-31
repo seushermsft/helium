@@ -1,12 +1,12 @@
 import { DocumentQuery, RetrievedDocument } from "documentdb";
 import { inject, injectable } from "inversify";
-import { Controller, Get, interfaces, Post } from "inversify-restify-utils";
+import { Controller, Delete, Get, interfaces, Post } from "inversify-restify-utils";
+import { httpStatus } from "../../config/constants";
 import { collection, database, defaultPartitionKey } from "../../db/dbconstants";
 import { IDatabaseProvider } from "../../db/idatabaseprovider";
 import { ILoggingProvider } from "../../logging/iLoggingProvider";
 import { ITelemProvider } from "../../telem/itelemprovider";
 import { Movie } from "../models/movie";
-import { statusBadRequest, statusCreated, statusInternalServerError, statusOK } from "./constants";
 
 /**
  * controller implementation for our movies endpoint
@@ -25,8 +25,15 @@ export class MovieController implements interfaces.Controller {
     }
 
     /**
-     *  Retrieve and return all movies
-     *  Filter movies by name "?q=<name>"
+     * @api {get} /api/movies Request All Movies
+     * @apiName GetAll
+     * @apiGroup Movies
+     *
+     * @apiDescription
+     * Retrieve and return all movies.
+     * Filter movies by name "?q=<name>".
+     *
+     * @apiParam (query) {String} [q] Movie title.
      */
     @Get("/")
     public async getAll(req, res) {
@@ -61,23 +68,75 @@ export class MovieController implements interfaces.Controller {
             };
         }
 
-        let resCode = statusOK;
+        let resCode = httpStatus.OK;
         let results: RetrievedDocument[];
         try {
-          results = await this.cosmosDb.queryDocuments(
-            database,
-            collection,
-            querySpec,
-            { enableCrossPartitionQuery: true },
-          );
+            results = await this.cosmosDb.queryDocuments(
+                database,
+                collection,
+                querySpec,
+                { enableCrossPartitionQuery: true },
+            );
         } catch (err) {
-          resCode = statusInternalServerError;
+            resCode = httpStatus.InternalServerError;
         }
         return res.send(resCode, results);
     }
 
     /**
-     *  Create a movie
+     * @api {get} /api/movies/:id Request Movie information
+     * @apiName GetMovie
+     * @apiGroup Movies
+     *
+     * @apiDescription
+     * Retrieve and return a single movie by movie ID.
+     *
+     * @apiParam (query) {String} id Movie's unique ID.
+     */
+    @Get("/:id")
+    public async getMovieById(req, res) {
+
+        const movieId = req.params.id;
+
+        this.telem.trackEvent("get movie by id");
+
+        let resCode = httpStatus.OK;
+        let result: RetrievedDocument;
+        try {
+            result = await this.cosmosDb.getDocument(database,
+                collection,
+                defaultPartitionKey,
+                movieId);
+        } catch (err) {
+            resCode = httpStatus.InternalServerError;
+        }
+
+        if (!result) {
+            resCode = httpStatus.NotFound;
+        }
+
+        return res.send(resCode, result);
+    }
+
+    /**
+     * @api {post} /api/movies Create Movie
+     * @apiName PostMovie
+     * @apiGroup Movies
+     *
+     * @apiDescription
+     * Create a movie.
+     *
+     * @apiParam (body) {String} id
+     * @apiParam (body) {String} movieId
+     * @apiParam (body) {String} textSearch
+     * @apiParam (body) {String} title
+     * @apiParam (body) {String="Movie"} type
+     * @apiParam (body) {Number} [key]
+     * @apiParam (body) {Number} [year]
+     * @apiParam (body) {Number} [rating]
+     * @apiParam (body) {Number} [votes]
+     * @apiParam (body) {String[]} [genres]
+     * @apiParam (body) {Actor[]} [roles]
      */
     @Post("/")
     public async createMovie(req, res) {
@@ -89,49 +148,64 @@ export class MovieController implements interfaces.Controller {
 
         movie.validate().then(async (errors) => {
             if (errors.length > 0) {
-                return res.send(statusBadRequest,
+                return res.send(httpStatus.BadRequest,
                     {
                         message: [].concat.apply([], errors.map((x) =>
                             Object.values(x.constraints))),
-                        status: statusBadRequest,
+                        status: httpStatus.BadRequest,
                     });
             }
         });
 
         // upsert document, catch errors
-        let resCode: number = statusCreated;
+        let resCode: number = httpStatus.Created;
         let result: RetrievedDocument;
         try {
-          result = await this.cosmosDb.upsertDocument(
-            database,
-            collection,
-            req.body,
-          );
+            result = await this.cosmosDb.upsertDocument(
+                database,
+                collection,
+                req.body,
+            );
         } catch (err) {
-          resCode = statusInternalServerError;
+            resCode = httpStatus.InternalServerError;
         }
         return res.send(resCode, result);
     }
 
     /**
-     * Retrieve and return a single movie by movie ID.
+     * @api {delete} /api/movies/:id Delete Movie
+     * @apiName DeleteMovie
+     * @apiGroup Movies
+     *
+     * @apiDescription
+     * Delete a movie.
+     *
+     * @apiParam (query) {String} id Movie's unique ID.
      */
-    @Get("/:id")
-    public async getMovieById(req, res) {
+    @Delete("/:id")
+    public async deleteMovieById(req, res) {
 
         const movieId = req.params.id;
 
-        this.telem.trackEvent("get movie by id");
+        this.telem.trackEvent("delete movie by id");
 
-        let resCode = statusOK;
-        let result: RetrievedDocument;
+        let resCode = httpStatus.OK;
+        let result = "deleted";
         try {
-            result = await this.cosmosDb.getDocument(database,
-                collection,
-                defaultPartitionKey,
-                movieId);
+          await this.cosmosDb.deleteDocument(
+            database,
+            collection,
+            defaultPartitionKey,
+            movieId,
+          );
         } catch (err) {
-          resCode = statusInternalServerError;
+          if (err.toString().includes("NotFound")) {
+            resCode = httpStatus.NotFound;
+            result = "A Movie with that ID does not exist";
+            } else {
+            resCode = httpStatus.InternalServerError;
+            result = err.toString();
+          }
         }
         return res.send(resCode, result);
     }
