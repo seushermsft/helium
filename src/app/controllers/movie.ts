@@ -15,6 +15,9 @@ import { Movie } from "../models/movie";
 @injectable()
 export class MovieController implements interfaces.Controller {
 
+    // Must be type Any so we can return the string in GET API calls.
+    private static movieDoesNotExistError: any = "A Movie with that ID does not exist";
+
     constructor(
         @inject("IDatabaseProvider") private cosmosDb: IDatabaseProvider,
         @inject("ITelemProvider") private telem: ITelemProvider,
@@ -108,11 +111,13 @@ export class MovieController implements interfaces.Controller {
                 defaultPartitionKey,
                 movieId);
         } catch (err) {
-            resCode = httpStatus.InternalServerError;
-        }
-
-        if (!result) {
-            resCode = httpStatus.NotFound;
+            if (err.toString().includes("NotFound")) {
+                resCode = httpStatus.NotFound;
+                result = MovieController.movieDoesNotExistError;
+            } else {
+                resCode = httpStatus.InternalServerError;
+                result = err.toString();
+            }
         }
 
         return res.send(resCode, result);
@@ -201,7 +206,7 @@ export class MovieController implements interfaces.Controller {
         } catch (err) {
           if (err.toString().includes("NotFound")) {
             resCode = httpStatus.NotFound;
-            result = "A Movie with that ID does not exist";
+            result = MovieController.movieDoesNotExistError;
             } else {
             resCode = httpStatus.InternalServerError;
             result = err.toString();

@@ -14,6 +14,9 @@ import { Actor } from "../models/actor";
 @injectable()
 export class ActorController implements interfaces.Controller {
 
+    // Must be type Any so we can return the string in GET API calls.
+    private static actorDoesNotExistError: any = "An Actor with that ID does not exist";
+
     // Instantiate the actor controller
     constructor(
         @inject("IDatabaseProvider") private cosmosDb: IDatabaseProvider,
@@ -86,11 +89,13 @@ export class ActorController implements interfaces.Controller {
             defaultPartitionKey,
             actorId);
         } catch (err) {
-            resCode = httpStatus.InternalServerError;
-        }
-
-        if (!result) {
+          if (err.toString().includes("NotFound")) {
             resCode = httpStatus.NotFound;
+            result = ActorController.actorDoesNotExistError;
+          } else {
+            resCode = httpStatus.InternalServerError;
+            result = err.toString();
+          }
         }
 
         return res.send(resCode, result);
