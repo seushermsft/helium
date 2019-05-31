@@ -87,7 +87,7 @@ export class MovieController implements interfaces.Controller {
     }
 
     /**
-     * @api {get} /api/movies/:id Request Movie information
+     * @api {get} /api/movies/ Request Movie information
      * @apiName GetMovie
      * @apiGroup Movies
      *
@@ -178,7 +178,7 @@ export class MovieController implements interfaces.Controller {
     }
 
     /**
-     * @api {delete} /api/movies/:id Delete Movie
+     * @api {delete} /api/movies/ Delete Movie
      * @apiName DeleteMovie
      * @apiGroup Movies
      *
