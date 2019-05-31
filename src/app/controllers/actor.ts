@@ -2,7 +2,7 @@ import { DocumentQuery, RetrievedDocument } from "documentdb";
 import { inject, injectable } from "inversify";
 import { Controller, Get, interfaces, Post } from "inversify-restify-utils";
 import { Request } from "restify";
-import { collection, database } from "../../db/dbconstants";
+import { collection, database, defaultPartitionKey } from "../../db/dbconstants";
 import { IDatabaseProvider } from "../../db/idatabaseprovider";
 import { ILoggingProvider } from "../../logging/iLoggingProvider";
 import { ITelemProvider } from "../../telem/itelemprovider";
@@ -71,7 +71,7 @@ export class ActorController implements interfaces.Controller {
         try {
           result = await this.cosmosDb.getDocument(database,
             collection,
-            "0",
+            defaultPartitionKey,
             actorId);
         } catch (err) {
           resCode = statusInternalServerError;
