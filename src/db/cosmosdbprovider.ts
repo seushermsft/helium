@@ -306,13 +306,39 @@ export class CosmosDBProvider {
                              partitionKey: string,
                              documentId: string): Promise<RetrievedDocument> {
         return new Promise((resolve, reject) => {
-            const documentLink = CosmosDBProvider._buildDocumentLink(database, collection, documentId);
-            console.log(documentLink);
+            this.logger.Trace("In CosmosDB getDocument");
 
-            this.docDbClient.readDocument(documentLink, { partitionKey }, (err, result) => {
+            const getDocumentStartTime = DateUtilities.getTimestamp();
+            const documentLink = CosmosDBProvider._buildDocumentLink(database, collection, documentId);
+
+            this.docDbClient.readDocument(documentLink, { partitionKey }, (err, result, headers) => {
+                // Check for and log the db op RU cost
+                if (headers["x-ms-request-charge"]) {
+                    this.logger.Trace(`getDocument RU Cost: ${headers["x-ms-request-charge"]}`);
+                    const ruMetricTelem = this.telem.getMetricTelemetryObject(
+                        "CosmosDB: getDocument RU Cost",
+                        headers["x-ms-request-charge"],
+                    );
+                    this.telem.trackMetric(ruMetricTelem);
+                }
+
+                const getDocumentEndTime = DateUtilities.getTimestamp();
+                const getDocumentDuration = getDocumentEndTime - getDocumentStartTime;
+
+                // Get an object to track upsertDocument time metric
+                const metricTelem = this.telem.getMetricTelemetryObject(
+                    "CosmosDB: getDocument Duration",
+                    getDocumentDuration,
+                );
+
+                // Track CosmosDB query time metric
+                this.telem.trackMetric(metricTelem);
+
                 if (err == null) {
+                    this.logger.Trace("Returning from get document successfully");
                     resolve(result);
                 } else {
+                    this.logger.Error(Error(err.body), "getDocument returned error");
                     reject(`${err.code} - ${err.body}`);
                 }
             });
