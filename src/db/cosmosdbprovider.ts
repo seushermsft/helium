@@ -1,5 +1,6 @@
 import { DocumentClient, DocumentQuery, FeedOptions, RetrievedDocument } from "documentdb";
 import { inject, injectable, named } from "inversify";
+import { ILoggingProvider } from "../logging/iLoggingProvider";
 import { ITelemProvider } from "../telem/itelemprovider";
 import { DateUtilities } from "../utilities/dateUtilities";
 
@@ -44,17 +45,20 @@ export class CosmosDBProvider {
      * Creates a new instance of the CosmosDB class.
      * @param url The url of the CosmosDB.
      * @param accessKey The CosmosDB access key (primary of secondary).
+     * @param telem Telemetry provider used for metrics/events.
+     * @param logger Logging provider user for tracing/logging.
      */
     constructor(
         @inject("string") @named("cosmosDbUrl") private url: string,
         @inject("string") @named("cosmosDbKey") accessKey: string,
-        @inject("ITelemProvider") private telem: ITelemProvider) {
+        @inject("ITelemProvider") private telem: ITelemProvider,
+        @inject("ILoggingProvider") private logger: ILoggingProvider) {
         this.docDbClient = new DocumentClient(url, {
             masterKey: accessKey,
         });
         this.url = url;
         this.telem = telem;
-
+        this.logger = logger;
     }
 
     /**
@@ -76,7 +80,8 @@ export class CosmosDBProvider {
             // Get the timestamp immediately before the call to queryDocuments
             const queryStartTimeMs = DateUtilities.getTimestamp();
 
-            this.docDbClient.queryDocuments(collectionLink, query, options).toArray((err, results) => {
+            this.docDbClient.queryDocuments(collectionLink, query, options).toArray((err, results, headers) => {
+                this.logger.Trace("In CosmosDB queryDocuments");
 
                 // Get the timestamp for when the query completes
                 const queryEndTimeMs = DateUtilities.getTimestamp();
@@ -108,6 +113,21 @@ export class CosmosDBProvider {
                 // Track DependencyTelemetry for query
                 this.telem.trackDependency(dependencyTelem);
 
+                // Get an object to track query time metric
+                const metricTelem = this.telem.getMetricTelemetryObject(
+                    "CosmosDB: QueryDocuments Duration",
+                    queryDurationMs,
+                );
+
+                // Track CosmosDB query time metric
+                this.telem.trackMetric(metricTelem);
+
+                // Check for and log the db op RU cost
+                if (headers["x-ms-request-charge"]) {
+                    this.logger.Trace(`QueryDocument Resource Unit Cost: ${headers["x-ms-request-charge"]}`);
+                }
+                this.logger.Trace("Returning from query documents: Result: " + resultCode);
+
                 if (err == null) {
                     resolve(results);
                 } else {
@@ -136,13 +156,33 @@ export class CosmosDBProvider {
         return new Promise((resolve, reject) => {
             const documentLink = CosmosDBProvider._buildDocumentLink(database, collection, documentId);
 
+            this.logger.Trace("In CosmosDB deleteDocument");
+            const deleteStartTimeMs = DateUtilities.getTimestamp();
             this.docDbClient.deleteDocument(
                 documentLink,
                 { partitionKey },
-                (err) => {
+                (err, resource, headers) => {
+                    // Check for and log the db op RU cost
+                    if (headers["x-ms-request-charge"]) {
+                        this.logger.Trace(`QueryDocument Resource Unit Cost: ${headers["x-ms-request-charge"]}`);
+                    }
+                    const deleteEndTimeMs = DateUtilities.getTimestamp();
+                    const deleteDuration = deleteEndTimeMs - deleteStartTimeMs;
+
+                    // Get an object to track delete time metric
+                    const metricTelem = this.telem.getMetricTelemetryObject(
+                        "CosmosDB: deleteDocument Duration",
+                        deleteDuration,
+                    );
+
+                    // Track CosmosDB query time metric
+                    this.telem.trackMetric(metricTelem);
+
                     if (err) {
+                        this.logger.Error(Error(err.body), "Error in deleteDocument");
                         reject(`${err.code}: ${err.body}`);
                     } else {
+                        this.logger.Trace("deleteDocument returned success");
                         resolve("done");
                     }
                 });
@@ -162,10 +202,30 @@ export class CosmosDBProvider {
         return new Promise((resolve, reject) => {
             const dbLink = CosmosDBProvider._buildDBLink(database);
 
-            this.docDbClient.queryCollections(dbLink, query).toArray((err, results) => {
+            this.logger.Trace("In CosmosDB queryCollections");
+            const queryCollectionsStartTime = DateUtilities.getTimestamp();
+            this.docDbClient.queryCollections(dbLink, query).toArray((err, results, headers) => {
+                // Check for and log the db op RU cost
+                if (headers["x-ms-request-charge"]) {
+                    this.logger.Trace(`QueryDocument Resource Unit Cost: ${headers["x-ms-request-charge"]}`);
+                }
+                const queryCollectionsEndTime = DateUtilities.getTimestamp();
+                const queryCollectionsDuration = queryCollectionsEndTime - queryCollectionsStartTime;
+
+                // Get an object to track delete time metric
+                const metricTelem = this.telem.getMetricTelemetryObject(
+                    "CosmosDB: queryCollections Duration",
+                    queryCollectionsDuration,
+                );
+
+                // Track CosmosDB query time metric
+                this.telem.trackMetric(metricTelem);
+
                 if (err == null) {
+                    this.logger.Trace("queryCollections returned success");
                     resolve(results);
                 } else {
+                    this.logger.Error(Error(err.body), "queryCollections returned error");
                     reject(`${err.code}: ${err.body}`);
                 }
             });
@@ -182,11 +242,32 @@ export class CosmosDBProvider {
 
         // Wrap all functionality in a promise to avoid forcing the caller to use callbacks
         return new Promise((resolve, reject) => {
+            this.logger.Trace("In CosmosDB upsertDocument");
+
+            const upsertDocumentStartTime = DateUtilities.getTimestamp();
             const collectionLink = CosmosDBProvider._buildCollectionLink(database, collection);
-            this.docDbClient.upsertDocument(collectionLink, content, (err, result) => {
+            this.docDbClient.upsertDocument(collectionLink, content, (err, result, headers) => {
+                // Check for and log the db op RU cost
+                if (headers["x-ms-request-charge"]) {
+                    this.logger.Trace(`QueryDocument Resource Unit Cost: ${headers["x-ms-request-charge"]}`);
+                }
+
+                const upsertDocumentEndTime = DateUtilities.getTimestamp();
+                const upsertDocumentDuration = upsertDocumentEndTime - upsertDocumentStartTime;
+
+                // Get an object to track upsertDocument time metric
+                const metricTelem = this.telem.getMetricTelemetryObject(
+                    "CosmosDB: upsertDocument Duration",
+                    upsertDocumentDuration,
+                );
+
+                // Track CosmosDB query time metric
+                this.telem.trackMetric(metricTelem);
                 if (err == null) {
+                    this.logger.Trace("Returning from upsert documents successfully");
                     resolve(result);
                 } else {
+                    this.logger.Error(Error(err.body), "upsertDocument returned error");
                     reject(err);
                 }
             });

@@ -6,6 +6,7 @@ import { database } from "../../db/dbconstants";
 import { IDatabaseProvider } from "../../db/idatabaseprovider";
 import { ILoggingProvider } from "../../logging/iLoggingProvider";
 import { ITelemProvider } from "../../telem/itelemprovider";
+import { DateUtilities } from "../../utilities/dateUtilities";
 
 /**
  * controller implementation for our system endpoint
@@ -23,30 +24,34 @@ export class SystemController implements interfaces.Controller {
     }
 
     /**
-     * @api {get} /api/healthz Health Check
-     * @apiName GetHealthCheck
-     * @apiGroup System
+     * @swagger
      *
-     * @apiDescription
-     * Tells external services if the service is running.
-     *
-     * @apiError InternalServerError An error was thrown while trying to query the database
-     *
-     * @apiErrorExample {json} Error Response:
-     *     HTTP/1.1 500 Internal Server Error
-     *     {
-     *       message: "Application failed to reach database: <code>e</code>"
-     *     }
-     *
-     * @apiSuccessExample {json} Success Response:
-     *     HTTP/1.1 200 OK
-     *     {
-     *       message: "Successfully reached healthcheck endpoint",
-     *     }
+     * /api/heathlz:
+     *   get:
+     *     description: Tells external services if the service is running.
+     *     tags:
+     *       - System
+     *     responses:
+     *       '200':
+     *         description: Successfully reached healthcheck endpoint
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: string
+     *       default:
+     *         description: Unexpected error
      */
     @Get("/")
     public async healthcheck(req, res) {
-        this.telem.trackEvent("healthcheck called");
+        const apiStartTime = DateUtilities.getTimestamp();
+        const apiName = "Healthcheck";
+
+        let resCode = httpStatus.OK;
+        let resMessage = "Successfully reached healthcheck endpoint";
+
+        this.logger.Trace("API server: Endpoint called: " + apiName, req.getId());
+        this.telem.trackEvent("API server: Endpoint called: " + apiName);
+
         const querySpec: DocumentQuery = {
             parameters: [],
             query: "SELECT * FROM root",
@@ -55,9 +60,18 @@ export class SystemController implements interfaces.Controller {
         try {
             const results = await this.cosmosDb.queryCollections(database, querySpec);
         } catch (e) {
-            return res.send(httpStatus.InternalServerError, { message: "Application failed to reach database: " + e });
+            resCode = httpStatus.InternalServerError;
+            resMessage = "Application failed to reach database: " + e;
         }
+        const apiEndTime = DateUtilities.getTimestamp();
+        const apiDuration = apiEndTime - apiStartTime;
 
-        return res.send(httpStatus.OK, { message: "Successfully reached healthcheck endpoint" });
+        // Log API duration metric
+        const apiDurationMetricName = "API server: " + apiName + " duration";
+        const apiMetric = this.telem.getMetricTelemetryObject(apiDurationMetricName, apiDuration);
+        this.telem.trackMetric(apiMetric);
+        this.logger.Trace("API server: " + apiName + "  Result: " + resCode, req.getId());
+
+        return res.send(resCode, { message: resMessage });
     }
 }

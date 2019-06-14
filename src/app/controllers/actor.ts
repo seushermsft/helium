@@ -1,4 +1,4 @@
-import { RetrievedDocument } from "documentdb";
+import { DocumentQuery, RetrievedDocument } from "documentdb";
 import { inject, injectable } from "inversify";
 import { Controller, Get, interfaces, Post } from "inversify-restify-utils";
 import { Request } from "restify";
@@ -7,6 +7,7 @@ import { collection, database, defaultPartitionKey} from "../../db/dbconstants";
 import { IDatabaseProvider } from "../../db/idatabaseprovider";
 import { ILoggingProvider } from "../../logging/iLoggingProvider";
 import { ITelemProvider } from "../../telem/itelemprovider";
+import { DateUtilities } from "../../utilities/dateUtilities";
 import { Actor } from "../models/actor";
 
 // Controller implementation for our actors endpoint
@@ -28,24 +29,66 @@ export class ActorController implements interfaces.Controller {
     }
 
     /**
-     * @api {get} /api/actors Request All Actors
-     * @apiName GetAll
-     * @apiGroup Actors
+     * @swagger
      *
-     * @apiDescription
-     * Retrieve and return all actors.
+     * /api/actors:
+     *   get:
+     *     description: Retrieve and return all actors.
+     *     tags:
+     *       - Actors
+     *     parameters:
+     *       - name: q
+     *         description: The actor name to filter by.
+     *         in: query
+     *         schema:
+     *           type: string
+     *     responses:
+     *       '200':
+     *         description: List of actor objects
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: array
+     *               items:
+     *                 $ref: '#/components/schemas/Actor'
+     *       default:
+     *         description: Unexpected error
      */
     @Get("/")
     public async getAll(req: Request, res) {
+        const apiStartTime = DateUtilities.getTimestamp();
+        const apiName = "Get all actors";
 
-        this.telem.trackEvent("get all actors");
-        const querySpec = {
-            parameters: [],
-            query: `SELECT root.actorId,
-                      root.type, root.name, root.birthYear, root.deathYear, root.profession, root.movies
-              FROM root
-              WHERE root.type = 'Actor'`,
-        };
+        this.logger.Trace("API server: Endpoint called: " + apiName, req.id());
+        this.telem.trackEvent("API server: Endpoint called: " + apiName);
+
+        let querySpec: DocumentQuery;
+
+        // Actor name is an optional query param.
+        // If not specified, we should query for all actors.
+        const actorName: string = req.query.q;
+        if (actorName === undefined) {
+            querySpec = {
+                parameters: [],
+                query: `SELECT root.actorId, root.type, root.name,
+                root.birthYear, root.deathYear, root.profession, root.movies
+                FROM root
+                WHERE root.type = 'Actor'`,
+            };
+        } else {
+            querySpec = {
+                parameters: [
+                    {
+                        name: "@actorname",
+                        value: actorName.toLowerCase(),
+                    },
+                ],
+                query: `SELECT root.actorId, root.type, root.name,
+                root.birthYear, root.deathYear, root.profession, root.movies
+                FROM root
+                WHERE CONTAINS(root.textSearch, @actorname) AND root.type = 'Actor'`,
+            };
+        }
 
         // make query, catch errors
         let resCode = httpStatus.OK;
@@ -60,25 +103,53 @@ export class ActorController implements interfaces.Controller {
         } catch (err) {
             resCode = httpStatus.InternalServerError;
         }
+        const apiEndTime = DateUtilities.getTimestamp();
+        const apiDuration = apiEndTime - apiStartTime;
+
+        // Log API duration metric
+        const apiDurationMetricName = "API server: " + apiName + " duration";
+        const apiMetric = this.telem.getMetricTelemetryObject(apiDurationMetricName, apiDuration);
+        this.telem.trackMetric(apiMetric);
+
+        this.logger.Trace("API server: " + apiName + "  Result: " + resCode, req.id());
         return res.send(resCode, results);
     }
 
     /**
-     * @api {get} /api/actors/ Request Actor information
-     * @apiName GetActor
-     * @apiGroup Actors
+     * @swagger
      *
-     * @apiDescription
-     * Retrieve and return a single actor by actor ID.
-     *
-     * @apiParam (query) {String} id Actor's unique ID.
+     * /api/actors/{id}:
+     *   get:
+     *     description: Retrieve and return a single actor by actor ID.
+     *     tags:
+     *       - Actors
+     *     parameters:
+     *       - name: id
+     *         description: The ID of the actor to look for.
+     *         in: path
+     *         required: true
+     *         schema:
+     *           type: string
+     *     responses:
+     *       '200':
+     *         description: The actor object
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/Actor'
+     *       '404':
+     *         description: An actor with the specified ID was not found.
+     *       default:
+     *         description: Unexpected error
      */
     @Get("/:id")
     public async getActorById(req, res) {
-
+        const apiStartTime = DateUtilities.getTimestamp();
+        const apiName = "Get actor by Id";
         const actorId = req.params.id;
 
-        this.telem.trackEvent("get actor by id");
+        this.logger.Trace("API server: Endpoint called: " + apiName, req.getId());
+        this.telem.trackEvent("API server: Endpoint called: " + apiName);
 
         // make query, catch errors
         let resCode = httpStatus.OK;
@@ -97,31 +168,58 @@ export class ActorController implements interfaces.Controller {
             result = err.toString();
           }
         }
+        const apiEndTime = DateUtilities.getTimestamp();
+        const apiDuration = apiEndTime - apiStartTime;
 
+        // Log API duration metric
+        const apiDurationMetricName = "API server: " + apiName + " duration";
+        const apiMetric = this.telem.getMetricTelemetryObject(apiDurationMetricName, apiDuration);
+        this.telem.trackMetric(apiMetric);
+
+        this.logger.Trace("API server: " + apiName + "  Result: " + resCode, req.getId());
         return res.send(resCode, result);
     }
 
     /**
-     * @api {post} /api/actors Create Actor
-     * @apiName PostActor
-     * @apiGroup Actors
+     * @swagger
      *
-     * @apiDescription
-     * Create an actor.
-     *
-     * @apiParam (body) {String} id
-     * @apiParam (body) {String} actorId
-     * @apiParam (body) {String} textSearch
-     * @apiParam (body) {String} name
-     * @apiParam (body) {String="Actor"} type
-     * @apiParam (body) {Number} [key]
-     * @apiParam (body) {Number} [birthYear] Year they were born
-     * @apiParam (body) {String[]} [profession]
-     * @apiParam (body) {Movie[]} [movies]
+     * /api/actors:
+     *   post:
+     *     tags:
+     *       - Actors
+     *     requestBody:
+     *       description: Creates an actor.
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             $ref: '#/components/schemas/Actor'
+     *         application/xml:
+     *           schema:
+     *             $ref: '#/components/schemas/Actor'
+     *         application/x-www-form-urlencoded:
+     *           schema:
+     *             $ref: '#/components/schemas/Actor'
+     *         text/plain:
+     *           schema:
+     *             type: string
+     *     responses:
+     *       '201':
+     *         description: The created actor
+     *         content:
+     *           application/json:
+     *             schema:
+     *               $ref: '#/components/schemas/Actor'
+     *       default:
+     *         description: Unexpected error
      */
     @Post("/")
     public async createActor(req, res) {
-        this.telem.trackEvent("createActor endpoint");
+        const apiStartTime = DateUtilities.getTimestamp();
+        const apiName = "Post actor";
+
+        this.logger.Trace("API server: Endpoint called: " + apiName, req.getId());
+        this.telem.trackEvent("API server: Endpoint called: " + apiName);
 
         const actor: Actor = Object.assign(Object.create(Actor.prototype),
             JSON.parse(JSON.stringify(req.body)));
@@ -149,6 +247,15 @@ export class ActorController implements interfaces.Controller {
         } catch (err) {
             resCode = httpStatus.InternalServerError;
         }
+        const apiEndTime = DateUtilities.getTimestamp();
+        const apiDuration = apiEndTime - apiStartTime;
+
+        // Log API duration metric
+        const apiDurationMetricName = "API server: " + apiName + " duration";
+        const apiMetric = this.telem.getMetricTelemetryObject(apiDurationMetricName, apiDuration);
+        this.telem.trackMetric(apiMetric);
+
+        this.logger.Trace("API server: " + apiName + "  Result: " + resCode, req.getId());
         return res.send(resCode, result);
     }
 }
