@@ -16,7 +16,7 @@ import { Actor } from "../models/actor";
 export class ActorController implements interfaces.Controller {
 
     // Must be type Any so we can return the string in GET API calls.
-    private static actorDoesNotExistError: any = "An Actor with that ID does not exist";
+    private static readonly actorDoesNotExistError: any = "An Actor with that ID does not exist";
 
     // Instantiate the actor controller
     constructor(

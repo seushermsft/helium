@@ -17,7 +17,7 @@ import { Movie } from "../models/movie";
 export class MovieController implements interfaces.Controller {
 
     // Must be type Any so we can return the string in GET API calls.
-    private static movieDoesNotExistError: any = "A Movie with that ID does not exist";
+    private static readonly movieDoesNotExistError: any = "A Movie with that ID does not exist";
 
     constructor(
         @inject("IDatabaseProvider") private cosmosDb: IDatabaseProvider,
@@ -375,15 +375,17 @@ export class MovieController implements interfaces.Controller {
         this.logger.Trace("API server: Endpoint called: " + apiName, req.getId());
         this.telem.trackEvent("API server: Endpoint called: " + apiName);
 
+        // movieId isn't the partition key, so any search on it will require a cross-partition query.
         let resCode = httpStatus.NoContent;
-        let result = "deleted";
+        let result: string;
         try {
-          await this.cosmosDb.deleteDocument(
-            database,
-            collection,
-            defaultPartitionKey,
-            movieId,
-          );
+            await this.cosmosDb.deleteDocument(
+                database,
+                collection,
+                defaultPartitionKey,
+                movieId,
+            );
+            return res.send(resCode);
         } catch (err) {
             if (err.toString().includes("NotFound")) {
                 resCode = httpStatus.NotFound;
