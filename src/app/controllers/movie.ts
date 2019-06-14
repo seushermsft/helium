@@ -375,7 +375,7 @@ export class MovieController implements interfaces.Controller {
         this.logger.Trace("API server: Endpoint called: " + apiName, req.getId());
         this.telem.trackEvent("API server: Endpoint called: " + apiName);
 
-        let resCode = httpStatus.OK;
+        let resCode = httpStatus.NoContent;
         let result = "deleted";
         try {
           await this.cosmosDb.deleteDocument(
