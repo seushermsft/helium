@@ -56,13 +56,6 @@ export class MovieController implements interfaces.Controller {
      */
     @Get("/")
     public async getAll(req, res) {
-
-        const apiStartTime = DateUtilities.getTimestamp();
-        const apiName = "Get all Movies";
-
-        this.logger.Trace("API server: Endpoint called: " + apiName, req.getId());
-        this.telem.trackEvent("API server: Endpoint called: " + apiName);
-
         let querySpec: DocumentQuery;
 
         // Movie name is an optional query param.
@@ -104,14 +97,6 @@ export class MovieController implements interfaces.Controller {
         } catch (err) {
             resCode = httpStatus.InternalServerError;
         }
-        const apiEndTime = DateUtilities.getTimestamp();
-        const apiDuration = apiEndTime - apiStartTime;
-
-        // Log API duration metric
-        const apiDurationMetricName = "API server: " + apiName + " duration";
-        const apiMetric = this.telem.getMetricTelemetryObject(apiDurationMetricName, apiDuration);
-        this.telem.trackMetric(apiMetric);
-        this.logger.Trace("API server: " + apiName + "  Result: " + resCode, req.getId());
 
         return res.send(resCode, results);
     }
@@ -145,14 +130,7 @@ export class MovieController implements interfaces.Controller {
      */
     @Get("/:id")
     public async getMovieById(req, res) {
-
         const movieId = req.params.id;
-
-        const apiStartTime = DateUtilities.getTimestamp();
-        const apiName = "Get Movie by Id";
-
-        this.logger.Trace("API server: Endpoint called: " + apiName, req.getId());
-        this.telem.trackEvent("API server: Endpoint called: " + apiName);
 
         let resCode = httpStatus.OK;
         let result: RetrievedDocument;
@@ -170,14 +148,6 @@ export class MovieController implements interfaces.Controller {
                 result = err.toString();
             }
         }
-        const apiEndTime = DateUtilities.getTimestamp();
-        const apiDuration = apiEndTime - apiStartTime;
-
-        // Log API duration metric
-        const apiDurationMetricName = "API server: " + apiName + " duration";
-        const apiMetric = this.telem.getMetricTelemetryObject(apiDurationMetricName, apiDuration);
-        this.telem.trackMetric(apiMetric);
-        this.logger.Trace("API server: " + apiName + "  Result: " + resCode, req.getId());
 
         return res.send(resCode, result);
     }
@@ -218,12 +188,6 @@ export class MovieController implements interfaces.Controller {
     @Post("/")
     public async createMovie(req, res) {
 
-        const apiStartTime = DateUtilities.getTimestamp();
-        const apiName = "Post Movie";
-
-        this.logger.Trace("API server: Endpoint called: " + apiName, req.getId());
-        this.telem.trackEvent("API server: Endpoint called: " + apiName);
-
         const movie: Movie = Object.assign(Object.create(Movie.prototype),
             JSON.parse(JSON.stringify(req.body)));
 
@@ -250,14 +214,6 @@ export class MovieController implements interfaces.Controller {
         } catch (err) {
             resCode = httpStatus.InternalServerError;
         }
-        const apiEndTime = DateUtilities.getTimestamp();
-        const apiDuration = apiEndTime - apiStartTime;
-
-        // Log API duration metric
-        const apiDurationMetricName = "API server: " + apiName + " duration";
-        const apiMetric = this.telem.getMetricTelemetryObject(apiDurationMetricName, apiDuration);
-        this.telem.trackMetric(apiMetric);
-        this.logger.Trace("API server: " + apiName + "  Result: " + resCode, req.getId());
 
         return res.send(resCode, result);
     }
@@ -304,9 +260,6 @@ export class MovieController implements interfaces.Controller {
      */
     @Put("/:id")
     public async updateMovie(req, res) {
-
-        this.telem.trackEvent("create movie");
-
         const movieId = req.params.id;
 
         const movie: Movie = Object.assign(Object.create(Movie.prototype),
@@ -366,14 +319,7 @@ export class MovieController implements interfaces.Controller {
      */
     @Delete("/:id")
     public async deleteMovieById(req, res) {
-
         const movieId = req.params.id;
-
-        const apiStartTime = DateUtilities.getTimestamp();
-        const apiName = "Delete Movie by Id";
-
-        this.logger.Trace("API server: Endpoint called: " + apiName, req.getId());
-        this.telem.trackEvent("API server: Endpoint called: " + apiName);
 
         // movieId isn't the partition key, so any search on it will require a cross-partition query.
         let resCode = httpStatus.NoContent;
@@ -395,15 +341,7 @@ export class MovieController implements interfaces.Controller {
                 result = err.toString();
             }
         }
-        const apiEndTime = DateUtilities.getTimestamp();
-        const apiDuration = apiEndTime - apiStartTime;
 
-        // Log API duration metric
-        const apiDurationMetricName = "API server: " + apiName + " duration";
-        const apiMetric = this.telem.getMetricTelemetryObject(apiDurationMetricName, apiDuration);
-        this.telem.trackMetric(apiMetric);
-
-        this.logger.Trace("API server: " + apiName + "  Result: " + resCode, req.getId());
         return res.send(resCode, result);
     }
 }
